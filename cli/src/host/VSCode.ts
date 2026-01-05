@@ -3,6 +3,7 @@ import * as path from "path"
 import { logs } from "../services/logs.js"
 import { KiloCodePaths } from "../utils/paths.js"
 import { Package } from "../constants/package.js"
+import { machineIdSync } from "node-machine-id"
 
 // Identity information for VSCode environment
 export interface IdentityInfo {
@@ -1258,6 +1259,41 @@ export class WorkspaceAPI {
 		this.fs = new FileSystemAPI()
 	}
 
+	asRelativePath(pathOrUri: string | Uri, includeWorkspaceFolder?: boolean): string {
+		const fsPath = typeof pathOrUri === "string" ? pathOrUri : pathOrUri.fsPath
+
+		// If no workspace folders, return the original path
+		if (!this.workspaceFolders || this.workspaceFolders.length === 0) {
+			return fsPath
+		}
+
+		// Try to find a workspace folder that contains this path
+		for (const folder of this.workspaceFolders) {
+			const workspacePath = folder.uri.fsPath
+
+			// Normalize paths for comparison (handle different path separators)
+			const normalizedFsPath = path.normalize(fsPath)
+			const normalizedWorkspacePath = path.normalize(workspacePath)
+
+			// Check if the path is within this workspace folder
+			if (normalizedFsPath.startsWith(normalizedWorkspacePath)) {
+				// Get the relative path
+				let relativePath = path.relative(normalizedWorkspacePath, normalizedFsPath)
+
+				// If includeWorkspaceFolder is true and there are multiple workspace folders,
+				// prepend the workspace folder name
+				if (includeWorkspaceFolder && this.workspaceFolders.length > 1) {
+					relativePath = path.join(folder.name, relativePath)
+				}
+
+				return relativePath
+			}
+		}
+
+		// If not within any workspace folder, return the original path
+		return fsPath
+	}
+
 	onDidChangeWorkspaceFolders(listener: (event: WorkspaceFoldersChangeEvent) => void): Disposable {
 		return this._onDidChangeWorkspaceFolders.event(listener)
 	}
@@ -2286,7 +2322,7 @@ export function createVSCodeAPIMock(extensionRootPath: string, workspacePath: st
 		appName: `wrapper|cli|cli|${Package.version}`,
 		appRoot: import.meta.dirname,
 		language: "en",
-		machineId: identity?.machineId || "cli-machine-id",
+		machineId: identity?.machineId || machineIdSync(),
 		sessionId: identity?.sessionId || "cli-session-id",
 		remoteName: undefined,
 		shell: process.env.SHELL || "/bin/bash",

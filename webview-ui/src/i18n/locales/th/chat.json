@@ -26,7 +26,9 @@
 		"expand": "ขยายงาน",
 		"collapse": "ย่องาน",
 		"openInCloud": "เปิดงานใน Roo Code Cloud",
-		"openInCloudIntro": "ติดตามหรือโต้ตอบกับ Roo ได้จากทุกที่ สแกน คลิก หรือคัดลอกเพื่อเปิด"
+		"openInCloudIntro": "ติดตามหรือโต้ตอบกับ Roo ได้จากทุกที่ สแกน คลิก หรือคัดลอกเพื่อเปิด",
+		"openApiHistory": "เปิดประวัติ API",
+		"openUiHistory": "เปิดประวัติ UI"
 	},
 	"history": {
 		"title": "ประวัติ"
@@ -103,6 +105,7 @@
 	},
 	"scrollToBottom": "เลื่อนไปด้านล่างของแชท",
 	"about": "สร้าง รีแฟคเตอร์ และดีบักโค้ดด้วยความช่วยเหลือจาก AI ดู<DocsLink>เอกสาร</DocsLink>ของเราเพื่อเรียนรู้เพิ่มเติม",
+	"docs": "ตรวจสอบ<DocsLink>เอกสาร</DocsLink>ของเราเพื่อเริ่มต้นใช้งาน",
 	"onboarding": "รายการงานของคุณในเวิร์กสเปซนี้ว่างเปล่า",
 	"rooTips": {
 		"boomerangTasks": {
@@ -120,6 +123,10 @@
 		"customizableModes": {
 			"title": "โหมดที่ปรับแต่งได้",
 			"description": "บุคลิกพิเศษที่มีพฤติกรรมและโมเดลของตัวเอง"
+		},
+		"modelAgnostic": {
+			"title": "นำโมเดลของคุณเอง ไม่มีมาร์กอัปหรือการล็อค",
+			"description": "ใช้คีย์ของผู้ให้บริการของคุณเองหรือแม้แต่รันการอนุมานภายในเครื่อง — Roo ไม่คิดค่าใช้จ่ายสำหรับสิ่งนี้"
 		}
 	},
 	"selectMode": "เลือกโหมดสำหรับการโต้ตอบ",
@@ -138,6 +145,7 @@
 	},
 	"addImages": "เพิ่มรูปภาพในข้อความ",
 	"sendMessage": "ส่งข้อความ",
+	"pressToSend": "กด {{keyCombination}} เพื่อส่ง",
 	"stopTts": "หยุดการอ่านเสียง",
 	"typeMessage": "พิมพ์ข้อความ...",
 	"typeTask": "สร้าง ค้นหา ถามอะไรก็ได้",
@@ -155,7 +163,19 @@
 		"failed": "คำขอ API ล้มเหลว",
 		"streaming": "คำขอ API...",
 		"cancelled": "ยกเลิกคำขอ API",
-		"streamingFailed": "การสตรีม API ล้มเหลว"
+		"streamingFailed": "การสตรีม API ล้มเหลว",
+		"errorTitle": "ข้อผิดพลาด API {{code}}",
+		"errorMessage": {
+			"docs": "เอกสาร",
+			"400": "ผู้ให้บริการไม่สามารถประมวลผลคำขอได้ หยุดงานและลองวิธีอื่น",
+			"401": "ไม่สามารถยืนยันตัวตนกับผู้ให้บริการได้ โปรดตรวจสอบการกำหนดค่า API key ของคุณ",
+			"402": "ดูเหมือนว่าคุณจะหมดเงิน/เครดิตในบัญชีของคุณ ไปที่ผู้ให้บริการของคุณและเพิ่มเพื่อดำเนินการต่อ",
+			"403": "ไม่ได้รับอนุญาต API key ของคุณถูกต้อง แต่ผู้ให้บริการปฏิเสธที่จะดำเนินการคำขอนี้ให้เสร็จสิ้น",
+			"429": "คำขอมากเกินไป คุณกำลังถูกจำกัดอัตราโดยผู้ให้บริการ โปรดรอสักครู่ก่อนเรียก API ครั้งถัดไป",
+			"500": "ข้อผิดพลาดเซิร์ฟเวอร์ของผู้ให้บริการ มีบางอย่างผิดพลาดทางฝั่งผู้ให้บริการ ไม่มีอะไรผิดพลาดกับคำขอของคุณ",
+			"connection": "ข้อผิดพลาดการเชื่อมต่อ ตรวจสอบให้แน่ใจว่าคุณมีการเชื่อมต่ออินเทอร์เน็ตที่ใช้งานได้",
+			"unknown": "ข้อผิดพลาด API ที่ไม่รู้จัก โปรดติดต่อฝ่ายสนับสนุน Kilo"
+		}
 	},
 	"checkpoint": {
 		"initial": "จุดตรวจเริ่มต้น",
@@ -176,6 +196,26 @@
 			"more": "ตัวเลือกเพิ่มเติม"
 		},
 		"current": "ปัจจุบัน"
+	},
+	"contextManagement": {
+		"tokens": "tokens",
+		"condensation": {
+			"title": "บริบทถูกย่อแล้ว",
+			"inProgress": "กำลังย่อบริบท...",
+			"errorHeader": "ไม่สามารถย่อบริบทได้",
+			"details": "การแจกแจงเนื้อหาในบริบท",
+			"disabled": "ปิดใช้งานการย่อบริบทอัจฉริยะแล้ว"
+		},
+		"truncation": {
+			"title": "บริบทถูกตัดทอน",
+			"inProgress": "กำลังตัดทอนบริบท...",
+			"messagesRemoved": "ลบ {{count}} ข้อความแล้ว",
+			"messagesRemoved_other": "ลบ {{count}} ข้อความแล้ว",
+			"description": "ข้อความเก่าถูกลบออกจากการสนทนาเพื่อไม่ให้เกินขีดจำกัดหน้าต่างบริบท วิธีนี้เร็วแต่รักษาบริบทได้น้อยกว่าการย่อบริบท",
+			"details": "รายละเอียดการตัดทอน",
+			"removedMessages": "ลบ {{count}} ข้อความแล้ว",
+			"disabled": "ปิดใช้งานการตัดทอนบริบทแล้ว"
+		}
 	},
 	"contextCondense": {
 		"title": "ย่อบริบทแล้ว",
@@ -205,7 +245,9 @@
 		"didSearchReplace": "Kilo Code ทำการค้นหาและแทนที่ในไฟล์นี้:",
 		"wantsToInsert": "Kilo Code ต้องการแทรกเนื้อหาลงในไฟล์นี้:",
 		"wantsToInsertWithLineNumber": "Kilo Code ต้องการแทรกเนื้อหาลงในไฟล์นี้ที่บรรทัด {{lineNumber}}:",
-		"wantsToInsertAtEnd": "Kilo Code ต้องการเพิ่มเนื้อหาที่ท้ายไฟล์นี้:"
+		"wantsToInsertAtEnd": "Kilo Code ต้องการเพิ่มเนื้อหาที่ท้ายไฟล์นี้:",
+		"wantsToDelete": "Kilo Code ต้องการลบไฟล์นี้:",
+		"wantsToDeleteDirectory": "Kilo Code ต้องการลบไดเรกทอรีนี้:"
 	},
 	"directoryOperations": {
 		"wantsToViewTopLevel": "Kilo Code ต้องการดูไฟล์ระดับบนสุดในไดเรกทอรีนี้:",
@@ -283,6 +325,11 @@
 	},
 	"taskCompleted": "งานเสร็จสมบูรณ์",
 	"error": "ข้อผิดพลาด",
+	"errorDetails": {
+		"title": "รายละเอียดข้อผิดพลาด",
+		"copyToClipboard": "คัดลอกไปยังคลิปบอร์ด",
+		"copied": "คัดลอกแล้ว!"
+	},
 	"diffError": {
 		"title": "การแก้ไขไม่สำเร็จ"
 	},
@@ -309,6 +356,7 @@
 		"triggerLabelOffShort": "ปิด"
 	},
 	"announcement": {
+		"support": "โปรดสนับสนุน Roo Code โดยให้ดาวแก่เราบน <githubLink>GitHub</githubLink>",
 		"title": "🎉 เปิดตัว Roo Code {{version}}",
 		"description": "Kilo Code {{version}} นำเสนอฟีเจอร์ใหม่ที่สำคัญและการปรับปรุงตามคำติชมของคุณ",
 		"whatsNew": "มีอะไรใหม่",
@@ -329,29 +377,45 @@
 		},
 		"release": {
 			"heading": "ใหม่ในส่วนขยาย:",
+			"contextRewind": "การย่อบริบทที่ได้รับการปรับปรุงตอนนี้ช่วยให้คุณสามารถกลับไปยังบริบทก่อนหน้าทั้งหมดได้เมื่อย้อนกลับไปยังจุดตรวจ",
+			"rooProvider": "ผู้ให้บริการ Roo Code Cloud ตอนนี้รักษาเนื้อหาการให้เหตุผลและใช้เครื่องมือแบบดั้งเดิมเป็นค่าเริ่มต้นเพื่อประสิทธิภาพที่ดีขึ้น",
 			"openRouterEmbeddings": "รองรับโมเดล embedding ของ OpenRouter",
 			"chutesDynamic": "Chutes โหลดโมเดลล่าสุดแบบไดนามิก",
-			"queuedMessagesFix": "แก้ไขปัญหาข้อความในคิวที่สูญหาย"
+			"queuedMessagesFix": "แก้ไขปัญหาข้อความในคิวที่สูญหาย",
+			"browserUse": "Browser Use 2.0 ยกระดับประสบการณ์การท่องเว็บในแชทด้วยเซสชันคงอยู่ ข้อเสนอแนะที่ชัดเจนยิ่งขึ้น แผงเบราว์เซอร์เฉพาะ และคำอธิบายการดำเนินการที่เป็นธรรมชาติมากขึ้น",
+			"cloudPaid": "ผู้ให้บริการ Roo Code Cloud ตอนนี้เสนอโมเดลแบบเสียเงิน: ซื้อเครดิตและใช้สำหรับทั้งเอเจนต์คลาวด์และการอนุมาน"
 		},
 		"cloudAgents": {
 			"heading": "ใหม่ใน Cloud:",
 			"prFixer": "ขอแนะนำ <bold>PR Fixer</bold> cloud agent เพื่อเสริม PR Reviewer",
 			"prFixerDescription": "PR Fixer ใช้การเปลี่ยนแปลงคุณภาพสูงกับ PR ของคุณ ตรงจาก GitHub เรียกใช้ผ่านความคิดเห็น PR และจะอ่านประวัติความคิดเห็นทั้งหมดเพื่อเข้าใจบริบท ข้อตกลง และการแลกเปลี่ยน - จากนั้นดำเนินการแก้ไขที่ถูกต้อง",
-			"tryPrFixerButton": "ลอง PR Fixer"
+			"tryPrFixerButton": "ลอง PR Fixer",
+			"specialized": "ขอแนะนำ <bold>Explainer</bold>, <bold>Planner</bold>, และ <bold>Coder</bold> - เอเจนต์คลาวด์เฉพาะทางสามตัวเพื่อยกระดับเวิร์กโฟลว์ของคุณ",
+			"description": "เอเจนต์เหล่านี้ทำงานร่วมกันในคลาวด์และสามารถเรียกใช้งานได้จากเว็บหรือผ่าน Slack",
+			"tryButton": "ลองเอเจนต์คลาวด์"
 		},
-		"careers": "นอกจากนี้ <careersLink>เรากำลังรับสมัครงาน!</careersLink>",
-		"socialLinks": "เข้าร่วมกับเราบน <xLink>X</xLink>, <discordLink>Discord</discordLink> หรือ <redditLink>r/RooCode</redditLink> 🚀"
+		"careers": "นอกจากนี้ <careersLink>เรากำลังรับสมัครงาน!</careersLink>"
 	},
 	"reasoning": {
 		"thinking": "กำลังคิด",
 		"seconds": "{{count}} วินาที"
 	},
 	"followUpSuggest": {
+		"timerPrefix": "เปิดใช้งานการอนุมัติอัตโนมัติแล้ว กำลังเลือกใน {{seconds}}s…",
 		"copyToInput": "คัดลอกไปยังอินพุต (เหมือนกับ shift + คลิก)",
 		"autoSelectCountdown": "เลือกอัตโนมัติใน {{count}} วินาที",
 		"countdownDisplay": "{{count}} วินาที"
 	},
 	"browser": {
+		"browserAnnouncement": "🌐 การโต้ตอบกับเบราว์เซอร์ 2.0",
+		"browserAnnouncementDesc": "ปรับปรุงประสบการณ์การท่องเว็บในแชทด้วยเซสชันคงอยู่ ความคิดเห็นที่ชัดเจนยิ่งขึ้น แผงเบราว์เซอร์เฉพาะ และคำอธิบายการดำเนินการที่เป็นธรรมชาติมากขึ้น",
+		"browserSession": "เซสชันเบราว์เซอร์",
+		"session": "เซสชันเบราว์เซอร์",
+		"browserActionPress": "กดปุ่ม",
+		"browserActionPressDesc": "กด {{key}}",
+		"browserActionHover": "วางเมาส์",
+		"browserActionHoverDesc": "วางเมาส์ ({{coordinate}})",
+		"rooCloudAnnouncement": "🚀 ประกาศ Roo Code Cloud",
 		"rooWantsToUse": "Kilo Code ต้องการใช้เบราว์เซอร์:",
 		"consoleLogs": "บันทึกคอนโซล",
 		"noNewLogs": "(ไม่มีบันทึกใหม่)",
@@ -365,12 +429,38 @@
 		"sessionStarted": "เริ่มเซสชันเบราว์เซอร์",
 		"actions": {
 			"title": "การดำเนินการเรียกดู: ",
+			"launched": "เปิดเบราว์เซอร์แล้ว",
 			"launch": "เปิดเบราว์เซอร์ที่ {{url}}",
+			"clicked": "คลิกที่: {{coordinate}}",
 			"click": "คลิก ({{coordinate}})",
+			"typed": "พิมพ์: {{text}}",
 			"type": "พิมพ์ \"{{text}}\"",
+			"pressed": "กดปุ่ม: {{key}}",
+			"press": "กด {{key}}",
+			"scrolledDown": "เลื่อนลงแล้ว",
 			"scrollDown": "เลื่อนลง",
+			"scrolledUp": "เลื่อนขึ้นแล้ว",
 			"scrollUp": "เลื่อนขึ้น",
-			"close": "ปิดเบราว์เซอร์"
+			"hovered": "วางเมาส์ที่: {{coordinate}}",
+			"hover": "วางเมาส์ ({{coordinate}})",
+			"resized": "ปรับขนาดเป็น: {{size}}",
+			"resize": "ปรับขนาดเป็น {{size}}",
+			"screenshotSaved": "บันทึกภาพหน้าจอแล้ว",
+			"screenshot": "บันทึกภาพหน้าจอไปที่ {{path}}",
+			"closed": "ปิดเบราว์เซอร์แล้ว",
+			"close": "ปิดเบราว์เซอร์",
+			"goBack": "ย้อนกลับ",
+			"goForward": "ไปข้างหน้า",
+			"reload": "โหลดใหม่",
+			"clickElement": "คลิกที่องค์ประกอบ",
+			"hoverElement": "วางเมาส์ที่องค์ประกอบ",
+			"typeText": "พิมพ์ข้อความ",
+			"takeScreenshot": "ถ่ายภาพหน้าจอ",
+			"closeBrowser": "ปิดเบราว์เซอร์",
+			"fillDone": "กรอกเสร็จสิ้น",
+			"fillNotDone": "ยังไม่ได้กรอก",
+			"navigate": "นำทาง",
+			"openUrl": "เปิด URL"
 		}
 	},
 	"codeblock": {
@@ -453,5 +543,12 @@
 		"problems": "ปัญหา",
 		"terminal": "เทอร์มินัล",
 		"url": "วาง URL เพื่อดึงเนื้อหา"
+	},
+	"todo": {
+		"partial": "ทำเสร็จ {{completed}} จาก {{total}} รายการ",
+		"complete": "ทำเสร็จทั้งหมด {{total}} รายการ",
+		"updated": "อัปเดตรายการสิ่งที่ต้องทำแล้ว",
+		"completed": "เสร็จสมบูรณ์",
+		"started": "เริ่มแล้ว"
 	}
 }

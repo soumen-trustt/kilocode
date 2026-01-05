@@ -15,13 +15,14 @@ import { Mode, modes, defaultModeSlug, getModeBySlug, getGroupName, getModeSelec
 import { DiffStrategy } from "../../shared/tools"
 import { formatLanguage } from "../../shared/language"
 import { isEmpty } from "../../utils/object"
-import { ToolUseStyle } from "../../../packages/types/src" // kilocode_change
 import { McpHub } from "../../services/mcp/McpHub"
 import { CodeIndexManager } from "../../services/code-index/manager"
+import { SkillsManager } from "../../services/skills/SkillsManager"
 
 import { PromptVariables, loadSystemPromptFile } from "./sections/custom-system-prompt"
 
 import { getToolDescriptionsForMode } from "./tools"
+import { getEffectiveProtocol, isNativeProtocol } from "@roo-code/types"
 import {
 	getRulesSection,
 	getSystemInfoSection,
@@ -33,6 +34,7 @@ import {
 	getModesSection,
 	addCustomInstructions,
 	markdownFormattingSection,
+	getSkillsSection,
 } from "./sections"
 import { type ClineProviderState } from "../webview/ClineProvider" // kilocode_change
 
@@ -69,7 +71,7 @@ async function generatePrompt(
 	settings?: SystemPromptSettings,
 	todoList?: TodoItem[],
 	modelId?: string,
-	toolUseStyle?: ToolUseStyle, // kilocode_change
+	skillsManager?: SkillsManager,
 	clineProviderState?: ClineProviderState, // kilocode_change
 ): Promise<string> {
 	if (!context) {
@@ -88,29 +90,28 @@ async function generatePrompt(
 	const hasMcpServers = mcpHub && mcpHub.getServers().length > 0
 	const shouldIncludeMcp = hasMcpGroup && hasMcpServers
 
-	const [modesSection, mcpServersSection] = await Promise.all([
-		getModesSection(context, toolUseStyle /*kilocode_change*/),
+	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
+
+	// Determine the effective protocol (defaults to 'xml')
+	const effectiveProtocol = getEffectiveProtocol(settings?.toolProtocol)
+
+	const [modesSection, mcpServersSection, skillsSection] = await Promise.all([
+		getModesSection(context),
 		shouldIncludeMcp
 			? getMcpServersSection(
 					mcpHub,
 					effectiveDiffStrategy,
 					enableMcpServerCreation,
-					toolUseStyle, // kilocode_change
+					!isNativeProtocol(effectiveProtocol),
 				)
 			: Promise.resolve(""),
+		getSkillsSection(skillsManager, mode as string),
 	])
 
-	const codeIndexManager = CodeIndexManager.getInstance(context, cwd)
-
-	const basePrompt = `${roleDefinition}
-
-${markdownFormattingSection(toolUseStyle ?? "xml" /*kilocode_change*/)}
-
-${getSharedToolUseSection(toolUseStyle /*kilocode_change*/)}
-
-${
-	toolUseStyle !== "json" // kilocode_change
-		? getToolDescriptionsForMode(
+	// Build tools catalog section only for XML protocol
+	const toolsCatalog = isNativeProtocol(effectiveProtocol)
+		? ""
+		: `\n\n${getToolDescriptionsForMode(
 				mode,
 				cwd,
 				supportsComputerUse,
@@ -125,23 +126,27 @@ ${
 				enableMcpServerCreation,
 				modelId,
 				clineProviderState, // kilocode_change
-			)
-		: ""
-}
+			)}`
 
-${getToolUseGuidelinesSection(codeIndexManager, toolUseStyle /*kilocode_change*/)}
+	const basePrompt = `${roleDefinition}
+
+${markdownFormattingSection()}
+
+${getSharedToolUseSection(effectiveProtocol)}${toolsCatalog}
+
+${getToolUseGuidelinesSection(effectiveProtocol)}
 
 ${mcpServersSection}
 
-${getCapabilitiesSection(cwd, supportsComputerUse, shouldIncludeMcp ? mcpHub : undefined, effectiveDiffStrategy, codeIndexManager, clineProviderState /* kilocode_change */)}
+${getCapabilitiesSection(cwd, shouldIncludeMcp ? mcpHub : undefined)}
 
 ${modesSection}
-
-${getRulesSection(cwd, supportsComputerUse, effectiveDiffStrategy, codeIndexManager, clineProviderState, toolUseStyle /* kilocode_change */)}
+${skillsSection ? `\n${skillsSection}` : ""}
+${getRulesSection(cwd, settings, clineProviderState /* kilocode_change */)}
 
 ${getSystemInfoSection(cwd)}
 
-${getObjectiveSection(codeIndexManager, experiments)}
+${getObjectiveSection()}
 
 ${await addCustomInstructions(baseInstructions, globalCustomInstructions || "", cwd, mode, {
 	language: language ?? formatLanguage(vscode.env.language),
@@ -174,7 +179,7 @@ export const SYSTEM_PROMPT = async (
 	settings?: SystemPromptSettings,
 	todoList?: TodoItem[],
 	modelId?: string,
-	toolUseStyle?: ToolUseStyle, // kilocode_change
+	skillsManager?: SkillsManager,
 	clineProviderState?: ClineProviderState, // kilocode_change
 ): Promise<string> => {
 	if (!context) {
@@ -251,7 +256,7 @@ ${customInstructions}`
 		settings,
 		todoList,
 		modelId,
-		toolUseStyle, // kilocode_change
+		skillsManager,
 		clineProviderState, // kilocode_change
 	)
 }

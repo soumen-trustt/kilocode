@@ -1,7 +1,7 @@
 import { EventEmitter } from "events"
 import { createVSCodeAPIMock, type IdentityInfo, type ExtensionContext } from "./VSCode.js"
 import { logs } from "../services/logs.js"
-import type { ExtensionMessage, WebviewMessage, ExtensionState } from "../types/messages.js"
+import type { ExtensionMessage, WebviewMessage, ExtensionState, ModeConfig } from "../types/messages.js"
 import { getTelemetryService } from "../services/telemetry/index.js"
 import { argsToMessage } from "../utils/safe-stringify.js"
 
@@ -10,6 +10,7 @@ export interface ExtensionHostOptions {
 	extensionBundlePath: string // Direct path to extension.js
 	extensionRootPath: string // Root path for extension assets
 	identity?: IdentityInfo // Identity information for VSCode environment
+	customModes?: ModeConfig[] // Custom modes configuration
 }
 
 // Extension module interface
@@ -389,6 +390,32 @@ export class ExtensionHost extends EventEmitter {
 			info: console.info,
 		}
 
+		// Set up global.__interceptedConsole FIRST, before any module loading
+		// This ensures it's available when the module compilation hook runs
+		// and all extension modules can use the intercepted console
+		;(global as unknown as { __interceptedConsole: Console }).__interceptedConsole = {
+			log: (...args: unknown[]) => {
+				const message = argsToMessage(args)
+				logs.info(message, "Extension")
+			},
+			error: (...args: unknown[]) => {
+				const message = argsToMessage(args)
+				logs.error(message, "Extension")
+			},
+			warn: (...args: unknown[]) => {
+				const message = argsToMessage(args)
+				logs.warn(message, "Extension")
+			},
+			debug: (...args: unknown[]) => {
+				const message = argsToMessage(args)
+				logs.debug(message, "Extension")
+			},
+			info: (...args: unknown[]) => {
+				const message = argsToMessage(args)
+				logs.info(message, "Extension")
+			},
+		} as Console
+
 		// Override console methods to forward to LogsService ONLY (no console output)
 		// IMPORTANT: Use safe serialization to avoid circular reference errors
 		console.log = (...args: unknown[]) => {
@@ -497,31 +524,6 @@ export class ExtensionHost extends EventEmitter {
 				exports: this.vscodeAPI,
 				paths: [],
 			} as unknown as NodeModule
-
-			// Store the intercepted console in global for module injection
-			// Use safe serialization to avoid circular reference errors
-			;(global as unknown as { __interceptedConsole: Console }).__interceptedConsole = {
-				log: (...args: unknown[]) => {
-					const message = argsToMessage(args)
-					logs.info(message, "Extension")
-				},
-				error: (...args: unknown[]) => {
-					const message = argsToMessage(args)
-					logs.error(message, "Extension")
-				},
-				warn: (...args: unknown[]) => {
-					const message = argsToMessage(args)
-					logs.warn(message, "Extension")
-				},
-				debug: (...args: unknown[]) => {
-					const message = argsToMessage(args)
-					logs.debug(message, "Extension")
-				},
-				info: (...args: unknown[]) => {
-					const message = argsToMessage(args)
-					logs.info(message, "Extension")
-				},
-			} as Console
 
 			// Clear extension require cache to ensure fresh load
 			if (require.cache[extensionPath]) {
@@ -765,7 +767,7 @@ export class ExtensionHost extends EventEmitter {
 			},
 			chatMessages: [],
 			mode: "code",
-			customModes: [],
+			customModes: this.options.customModes || [],
 			taskHistoryFullLength: 0,
 			taskHistoryVersion: 0,
 			renderContext: "cli",
@@ -957,10 +959,82 @@ export class ExtensionHost extends EventEmitter {
 
 		// Sync experiments if present (critical for CLI background editing)
 		if (configState.experiments || this.currentState?.experiments) {
-			const experiments = configState.experiments || this.currentState?.experiments
+			const experiments = (configState.experiments || this.currentState?.experiments) ?? {}
 			await this.sendWebviewMessage({
-				type: "updateExperimental",
-				values: experiments as Record<string, unknown>,
+				type: "updateSettings",
+				updatedSettings: { experiments },
+			})
+		}
+
+		// Sync auto-approval settings to the extension
+		// These settings control whether the extension auto-approves operations
+		// or defers to the CLI's approval flow (which prompts the user)
+		const autoApprovalSettings: Record<string, unknown> = {}
+
+		// Only include settings that are explicitly set in configState
+		if (configState.autoApprovalEnabled !== undefined) {
+			autoApprovalSettings.autoApprovalEnabled = configState.autoApprovalEnabled
+		}
+		if (configState.alwaysAllowReadOnly !== undefined) {
+			autoApprovalSettings.alwaysAllowReadOnly = configState.alwaysAllowReadOnly
+		}
+		if (configState.alwaysAllowReadOnlyOutsideWorkspace !== undefined) {
+			autoApprovalSettings.alwaysAllowReadOnlyOutsideWorkspace = configState.alwaysAllowReadOnlyOutsideWorkspace
+		}
+		if (configState.alwaysAllowWrite !== undefined) {
+			autoApprovalSettings.alwaysAllowWrite = configState.alwaysAllowWrite
+		}
+		if (configState.alwaysAllowWriteOutsideWorkspace !== undefined) {
+			autoApprovalSettings.alwaysAllowWriteOutsideWorkspace = configState.alwaysAllowWriteOutsideWorkspace
+		}
+		if (configState.alwaysAllowWriteProtected !== undefined) {
+			autoApprovalSettings.alwaysAllowWriteProtected = configState.alwaysAllowWriteProtected
+		}
+		if (configState.alwaysAllowBrowser !== undefined) {
+			autoApprovalSettings.alwaysAllowBrowser = configState.alwaysAllowBrowser
+		}
+		if (configState.alwaysApproveResubmit !== undefined) {
+			autoApprovalSettings.alwaysApproveResubmit = configState.alwaysApproveResubmit
+		}
+		if (configState.requestDelaySeconds !== undefined) {
+			autoApprovalSettings.requestDelaySeconds = configState.requestDelaySeconds
+		}
+		if (configState.alwaysAllowMcp !== undefined) {
+			autoApprovalSettings.alwaysAllowMcp = configState.alwaysAllowMcp
+		}
+		if (configState.alwaysAllowModeSwitch !== undefined) {
+			autoApprovalSettings.alwaysAllowModeSwitch = configState.alwaysAllowModeSwitch
+		}
+		if (configState.alwaysAllowSubtasks !== undefined) {
+			autoApprovalSettings.alwaysAllowSubtasks = configState.alwaysAllowSubtasks
+		}
+		if (configState.alwaysAllowExecute !== undefined) {
+			autoApprovalSettings.alwaysAllowExecute = configState.alwaysAllowExecute
+		}
+		if (configState.allowedCommands !== undefined) {
+			autoApprovalSettings.allowedCommands = configState.allowedCommands
+		}
+		if (configState.deniedCommands !== undefined) {
+			autoApprovalSettings.deniedCommands = configState.deniedCommands
+		}
+		if (configState.alwaysAllowFollowupQuestions !== undefined) {
+			autoApprovalSettings.alwaysAllowFollowupQuestions = configState.alwaysAllowFollowupQuestions
+		}
+		if (configState.followupAutoApproveTimeoutMs !== undefined) {
+			autoApprovalSettings.followupAutoApproveTimeoutMs = configState.followupAutoApproveTimeoutMs
+		}
+		if (configState.alwaysAllowUpdateTodoList !== undefined) {
+			autoApprovalSettings.alwaysAllowUpdateTodoList = configState.alwaysAllowUpdateTodoList
+		}
+
+		// Send auto-approval settings if any are present
+		if (Object.keys(autoApprovalSettings).length > 0) {
+			await this.sendWebviewMessage({
+				type: "updateSettings",
+				updatedSettings: autoApprovalSettings,
+			})
+			logs.debug("Auto-approval settings synchronized to extension", "ExtensionHost", {
+				settings: Object.keys(autoApprovalSettings),
 			})
 		}
 	}
@@ -1014,20 +1088,28 @@ export class ExtensionHost extends EventEmitter {
 		this.webviewInitialized = true
 		this.isInitialSetup = false
 		logs.info("Webview marked as ready, flushing pending messages", "ExtensionHost")
-		this.flushPendingMessages()
+		void this.flushPendingMessages()
 	}
 
 	/**
 	 * Flush all pending messages that were queued before webview was ready
 	 */
-	private flushPendingMessages(): void {
-		const messages = [...this.pendingMessages]
+	private async flushPendingMessages(): Promise<void> {
+		const upsertMessages = this.pendingMessages.filter((m) => m.type === "upsertApiConfiguration")
+		const otherMessages = this.pendingMessages.filter((m) => m.type !== "upsertApiConfiguration")
 		this.pendingMessages = []
 
-		logs.info(`Flushing ${messages.length} pending messages`, "ExtensionHost")
-		for (const message of messages) {
+		logs.info(`Flushing ${upsertMessages.length + otherMessages.length} pending messages`, "ExtensionHost")
+
+		// Ensure the API configuration is applied before anything tries to read it
+		for (const message of upsertMessages) {
 			logs.debug(`Flushing pending message: ${message.type}`, "ExtensionHost")
-			// Use void to explicitly ignore the promise
+			// Serialize upserts so provider settings are persisted before readers run
+			await this.sendWebviewMessage(message)
+		}
+
+		for (const message of otherMessages) {
+			logs.debug(`Flushing pending message: ${message.type}`, "ExtensionHost")
 			void this.sendWebviewMessage(message)
 		}
 	}

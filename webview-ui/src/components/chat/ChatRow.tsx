@@ -14,11 +14,11 @@ import { safeJsonParse } from "@roo/safeJsonParse"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { findMatchingResourceOrTemplate } from "@src/utils/mcp"
 import { vscode } from "@src/utils/vscode"
-import { removeLeadingNonAlphanumeric } from "@src/utils/removeLeadingNonAlphanumeric"
-import { getLanguageFromPath } from "@src/utils/getLanguageFromPath"
+import { formatPathTooltip } from "@src/utils/formatPathTooltip"
 
 import { ToolUseBlock, ToolUseBlockHeader } from "../common/ToolUseBlock"
 import UpdateTodoListToolBlock from "./UpdateTodoListToolBlock"
+import { TodoChangeDisplay } from "./TodoChangeDisplay"
 import CodeAccordian from "../common/CodeAccordian"
 import MarkdownBlock from "../common/MarkdownBlock"
 import { ReasoningBlock } from "./ReasoningBlock"
@@ -31,7 +31,6 @@ import McpResourceRow from "../mcp/McpResourceRow"
 import { Mention } from "./Mention"
 import { CheckpointSaved } from "./checkpoints/CheckpointSaved"
 import { FollowUpSuggest } from "./FollowUpSuggest"
-import { LowCreditWarning } from "../kilocode/chat/LowCreditWarning" // kilocode_change
 import { BatchFilePermission } from "./BatchFilePermission"
 import { BatchDiffApproval } from "./BatchDiffApproval"
 import { ProgressIndicator } from "./ProgressIndicator"
@@ -40,18 +39,13 @@ import { CommandExecution } from "./CommandExecution"
 import { CommandExecutionError } from "./CommandExecutionError"
 import ReportBugPreview from "./ReportBugPreview"
 
-import { NewTaskPreview } from "../kilocode/chat/NewTaskPreview" // kilocode_change
-import { KiloChatRowGutterBar } from "../kilocode/chat/KiloChatRowGutterBar" // kilocode_change
 import { AutoApprovedRequestLimitWarning } from "./AutoApprovedRequestLimitWarning"
-import { CondenseContextErrorRow, CondensingContextRow, ContextCondenseRow } from "./ContextCondenseRow"
+import { InProgressRow, CondensationResultRow, CondensationErrorRow, TruncationResultRow } from "./context-management"
 import CodebaseSearchResultsDisplay from "./CodebaseSearchResultsDisplay"
-import { StandardTooltip } from "../ui" // kilocode_change
-import { FastApplyChatDisplay } from "./kilocode/FastApplyChatDisplay" // kilocode_change
 import { appendImages } from "@src/utils/imageUtils"
 import { McpExecution } from "./McpExecution"
 import { ChatTextArea } from "./ChatTextArea"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
-import { InvalidModelWarning } from "../kilocode/chat/InvalidModelWarning" // kilocode_change
 import { useSelectedModel } from "../ui/hooks/useSelectedModel"
 import {
 	Eye,
@@ -67,10 +61,57 @@ import {
 	FolderTree,
 	TerminalSquare,
 	MessageCircle,
+	Repeat2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SeeNewChangesButtons } from "./kilocode/SeeNewChangesButtons"
-import ChatTimestamps from "./ChatTimestamps" // kilocode_change
+import { PathTooltip } from "../ui/PathTooltip"
+
+// kilocode_change start
+import { LowCreditWarning } from "../kilocode/chat/LowCreditWarning"
+import { NewTaskPreview } from "../kilocode/chat/NewTaskPreview"
+import { KiloChatRowGutterBar } from "../kilocode/chat/KiloChatRowGutterBar"
+import { StandardTooltip } from "../ui"
+import { FastApplyChatDisplay } from "./kilocode/FastApplyChatDisplay"
+import { InvalidModelWarning } from "../kilocode/chat/InvalidModelWarning"
+import { formatFileSize } from "@/lib/formatting-utils"
+import ChatTimestamps from "./ChatTimestamps"
+import { removeLeadingNonAlphanumeric } from "@/utils/removeLeadingNonAlphanumeric"
+import { KILOCODE_TOKEN_REQUIRED_ERROR } from "@roo/kilocode/errorUtils"
+// kilocode_change end
+
+// Helper function to get previous todos before a specific message
+function getPreviousTodos(messages: ClineMessage[], currentMessageTs: number): any[] {
+	// Find the previous updateTodoList message before the current one
+	const previousUpdateIndex = messages
+		.slice()
+		.reverse()
+		.findIndex((msg) => {
+			if (msg.ts >= currentMessageTs) return false
+			if (msg.type === "ask" && msg.ask === "tool") {
+				try {
+					const tool = JSON.parse(msg.text || "{}")
+					return tool.tool === "updateTodoList"
+				} catch {
+					return false
+				}
+			}
+			return false
+		})
+
+	if (previousUpdateIndex !== -1) {
+		const previousMessage = messages.slice().reverse()[previousUpdateIndex]
+		try {
+			const tool = JSON.parse(previousMessage.text || "{}")
+			return tool.todos || []
+		} catch {
+			return []
+		}
+	}
+
+	// If no previous updateTodoList message, return empty array
+	return []
+}
 
 interface ChatRowProps {
 	message: ClineMessage
@@ -86,6 +127,7 @@ interface ChatRowProps {
 	enableCheckpoints?: boolean // kilocode_change
 	onFollowUpUnmount?: () => void
 	isFollowUpAnswered?: boolean
+	isFollowUpAutoApprovalPaused?: boolean
 	editable?: boolean
 	hasCheckpoint?: boolean
 }
@@ -147,12 +189,12 @@ export const ChatRowContent = ({
 	onBatchFileResponse,
 	enableCheckpoints, // kilocode_change
 	isFollowUpAnswered,
-	editable,
+	isFollowUpAutoApprovalPaused,
 }: ChatRowContentProps) => {
-	const { t } = useTranslation()
+	const { t, i18n } = useTranslation()
 
 	// kilocode_change: add showTimestamps
-	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, showTimestamps } =
+	const { mcpServers, alwaysAllowMcp, currentCheckpoint, mode, apiConfiguration, clineMessages, showTimestamps } =
 		useExtensionState()
 	const { info: model } = useSelectedModel(apiConfiguration)
 	const [isEditing, setIsEditing] = useState(false)
@@ -388,6 +430,12 @@ export const ChatRowContent = ({
 		[message.ask, message.text],
 	)
 
+	// Unified diff content (provided by backend when relevant)
+	const unifiedDiff = useMemo(() => {
+		if (!tool) return undefined
+		return (tool.content ?? tool.diff) as string | undefined
+	}, [tool])
+
 	const followUpData = useMemo(() => {
 		if (message.type === "ask" && message.ask === "followup" && !message.partial) {
 			return safeJsonParse<FollowUpData>(message.text)
@@ -402,7 +450,7 @@ export const ChatRowContent = ({
 				style={{ color: "var(--vscode-foreground)", marginBottom: "-1.5px" }}></span>
 		)
 
-		switch (tool.tool) {
+		switch (tool.tool as string) {
 			case "editedExistingFile":
 			case "appliedDiff":
 				// Check if this is a batch diff request
@@ -443,12 +491,13 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.content ?? tool.diff}
+								code={unifiedDiff ?? tool.content ?? tool.diff}
 								language="diff"
 								progressStatus={message.progressStatus}
 								isLoading={message.partial}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
 							/>
 							{
 								// kilocode_change start
@@ -485,12 +534,47 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.diff}
+								code={unifiedDiff ?? tool.diff}
 								language="diff"
 								progressStatus={message.progressStatus}
 								isLoading={message.partial}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
+							/>
+						</div>
+					</>
+				)
+			case "searchAndReplace":
+				return (
+					<>
+						<div style={headerStyle}>
+							{tool.isProtected ? (
+								<span
+									className="codicon codicon-lock"
+									style={{ color: "var(--vscode-editorWarning-foreground)", marginBottom: "-1.5px" }}
+								/>
+							) : (
+								toolIcon("replace")
+							)}
+							<span style={{ fontWeight: "bold" }}>
+								{tool.isProtected && message.type === "ask"
+									? t("chat:fileOperations.wantsToEditProtected")
+									: message.type === "ask"
+										? t("chat:fileOperations.wantsToSearchReplace")
+										: t("chat:fileOperations.didSearchReplace")}
+							</span>
+						</div>
+						<div className="pl-6">
+							<CodeAccordian
+								path={tool.path}
+								code={unifiedDiff ?? tool.diff}
+								language="diff"
+								progressStatus={message.progressStatus}
+								isLoading={message.partial}
+								isExpanded={isExpanded}
+								onToggleExpand={handleToggleExpand}
+								diffStats={tool.diffStats}
 							/>
 						</div>
 					</>
@@ -519,18 +603,10 @@ export const ChatRowContent = ({
 			}
 			case "updateTodoList" as any: {
 				const todos = (tool as any).todos || []
-				return (
-					<UpdateTodoListToolBlock
-						todos={todos}
-						content={(tool as any).content}
-						onChange={(updatedTodos) => {
-							if (typeof vscode !== "undefined" && vscode?.postMessage) {
-								vscode.postMessage({ type: "updateTodoList", payload: { todos: updatedTodos } })
-							}
-						}}
-						editable={editable && isLast}
-					/>
-				)
+				// Get previous todos from the latest todos in the task context
+				const previousTodos = getPreviousTodos(clineMessages, message.ts)
+
+				return <TodoChangeDisplay previousTodos={previousTodos} newTodos={todos} />
 			}
 			case "newFileCreated":
 				return (
@@ -553,12 +629,13 @@ export const ChatRowContent = ({
 						<div className="pl-6">
 							<CodeAccordian
 								path={tool.path}
-								code={tool.content}
-								language={getLanguageFromPath(tool.path || "") || "log"}
+								code={unifiedDiff ?? ""}
+								language="diff"
 								isLoading={message.partial}
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
 								onJumpToFile={() => vscode.postMessage({ type: "openFile", text: "./" + tool.path })}
+								diffStats={tool.diffStats}
 							/>
 							{
 								// kilocode_change start
@@ -568,6 +645,53 @@ export const ChatRowContent = ({
 						</div>
 					</>
 				)
+			// kilocode_change start
+			case "deleteFile":
+				return (
+					<>
+						<div style={headerStyle}>
+							<Trash2 className="w-4 shrink-0" aria-label="Delete icon" />
+							<span style={{ fontWeight: "bold" }}>
+								{tool.stats
+									? t("chat:fileOperations.wantsToDeleteDirectory")
+									: t("chat:fileOperations.wantsToDelete")}
+							</span>
+						</div>
+						<div className="pl-6">
+							<ToolUseBlock>
+								<ToolUseBlockHeader className="group">
+									{tool.path?.startsWith(".") && <span>.</span>}
+									<span className="whitespace-nowrap overflow-hidden text-ellipsis text-left mr-2 rtl">
+										{removeLeadingNonAlphanumeric(tool.path ?? "") + "\u200E"}
+									</span>
+								</ToolUseBlockHeader>
+								{tool.stats && tool.stats.isComplete === true && (
+									<div
+										className="py-1.5 text-xs text-vscode-descriptionForeground"
+										style={{
+											borderTop: "1px solid var(--vscode-editorGroup-border)",
+										}}>
+										<div className="flex items-center gap-3 flex-wrap">
+											<span className="flex items-center gap-1">
+												<span>📁</span>
+												<span>{tool.stats.directories}</span>
+											</span>
+											<span className="flex items-center gap-1">
+												<span>📄</span>
+												<span>{tool.stats.files}</span>
+											</span>
+											<span className="flex items-center gap-1">
+												<span>💾</span>
+												<span>{formatFileSize(tool.stats.size)}</span>
+											</span>
+										</div>
+									</div>
+								)}
+							</ToolUseBlock>
+						</div>
+					</>
+				)
+			// kilocode_change end
 			case "readFile":
 				// Check if this is a batch file permission request
 				const isBatchRequest = message.type === "ask" && tool.batchFiles && Array.isArray(tool.batchFiles)
@@ -615,10 +739,11 @@ export const ChatRowContent = ({
 									className="group"
 									onClick={() => vscode.postMessage({ type: "openFile", text: tool.content })}>
 									{tool.path?.startsWith(".") && <span>.</span>}
-									<span className="whitespace-nowrap overflow-hidden text-ellipsis text-left mr-2 rtl">
-										{removeLeadingNonAlphanumeric(tool.path ?? "") + "\u200E"}
-										{tool.reason}
-									</span>
+									<PathTooltip content={formatPathTooltip(tool.path, tool.reason)}>
+										<span className="whitespace-nowrap overflow-hidden text-ellipsis text-left mr-2 rtl">
+											{formatPathTooltip(tool.path, tool.reason)}
+										</span>
+									</PathTooltip>
 									<div style={{ flexGrow: 1 }}></div>
 									<SquareArrowOutUpRight
 										className="w-4 shrink-0 codicon codicon-link-external opacity-0 group-hover:opacity-100 transition-opacity"
@@ -693,32 +818,6 @@ export const ChatRowContent = ({
 								path={tool.path}
 								code={tool.content}
 								language="shellsession"
-								isExpanded={isExpanded}
-								onToggleExpand={handleToggleExpand}
-							/>
-						</div>
-					</>
-				)
-			case "listCodeDefinitionNames":
-				return (
-					<>
-						<div style={headerStyle}>
-							{toolIcon("file-code")}
-							<span style={{ fontWeight: "bold" }}>
-								{message.type === "ask"
-									? tool.isOutsideWorkspace
-										? t("chat:directoryOperations.wantsToViewDefinitionsOutsideWorkspace")
-										: t("chat:directoryOperations.wantsToViewDefinitions")
-									: tool.isOutsideWorkspace
-										? t("chat:directoryOperations.didViewDefinitionsOutsideWorkspace")
-										: t("chat:directoryOperations.didViewDefinitions")}
-							</span>
-						</div>
-						<div className="pl-6">
-							<CodeAccordian
-								path={tool.path}
-								code={tool.content}
-								language="markdown"
 								isExpanded={isExpanded}
 								onToggleExpand={handleToggleExpand}
 							/>
@@ -983,13 +1082,14 @@ export const ChatRowContent = ({
 						</div>
 						{message.type === "ask" && (
 							<div className="pl-6">
-								<CodeAccordian
-									path={tool.path}
-									code={tool.content}
-									language="text"
-									isExpanded={isExpanded}
-									onToggleExpand={handleToggleExpand}
-								/>
+								<ToolUseBlock>
+									<div className="p-2">
+										<div className="mb-2 break-words">{tool.content}</div>
+										<div className="flex items-center gap-1 text-xs text-vscode-descriptionForeground">
+											{tool.path}
+										</div>
+									</div>
+								</ToolUseBlock>
 							</div>
 						)}
 					</>
@@ -1055,7 +1155,6 @@ export const ChatRowContent = ({
 							ts={message.ts}
 							isStreaming={isStreaming}
 							isLast={isLast}
-							metadata={message.metadata as any}
 						/>
 					)
 				case "api_req_started":
@@ -1110,24 +1209,69 @@ export const ChatRowContent = ({
 								<ErrorRow
 									type="api_failure"
 									message={apiRequestFailedMessage || apiReqStreamingFailedMessage || ""}
-									additionalContent={
-										apiRequestFailedMessage?.toLowerCase().includes("powershell") ? (
-											<>
-												<br />
-												<br />
-												{t("chat:powershell.issues")}{" "}
-												<a
-													href="https://github.com/cline/cline/wiki/TroubleShooting-%E2%80%90-%22PowerShell-is-not-recognized-as-an-internal-or-external-command%22"
-													style={{ color: "inherit", textDecoration: "underline" }}>
-													troubleshooting guide
-												</a>
-												.
-											</>
-										) : undefined
+									docsURL={
+										apiRequestFailedMessage?.toLowerCase().includes("powershell")
+											? "https://github.com/cline/cline/wiki/TroubleShooting-%E2%80%90-%22PowerShell-is-not-recognized-as-an-internal-or-external-command%22"
+											: undefined
 									}
 								/>
 							)}
 						</>
+					)
+				case "api_req_retry_delayed":
+					let body = t(`chat:apiRequest.failed`)
+					let retryInfo, rawError, code, docsURL
+					if (message.text !== undefined) {
+						// Try to show richer error message for that code, if available
+						const potentialCode = parseInt(message.text.substring(0, 3))
+						if (!isNaN(potentialCode) && potentialCode >= 400) {
+							code = potentialCode
+							const stringForError = `chat:apiRequest.errorMessage.${code}`
+							if (i18n.exists(stringForError)) {
+								body = t(stringForError)
+								// Fill this out in upcoming PRs
+								// Do not remove this
+								// switch(code) {
+								// 	case ERROR_CODE:
+								// 		docsURL = ???
+								// 		break;
+								// }
+							} else {
+								body = t("chat:apiRequest.errorMessage.unknown")
+								docsURL = "https://kilo.ai/support"
+							}
+						} else if (message.text.indexOf("Connection error") === 0) {
+							body = t("chat:apiRequest.errorMessage.connection")
+						} else {
+							body = message.text
+						}
+
+						// This isn't pretty, but since the retry logic happens at a lower level
+						// and the message object is just a flat string, we need to extract the
+						// retry information using this "tag" as a convention
+						const retryTimerMatch = message.text.match(/<retry_timer>(.*?)<\/retry_timer>/)
+						const retryTimer = retryTimerMatch && retryTimerMatch[1] ? parseInt(retryTimerMatch[1], 10) : 0
+						rawError = message.text.replace(/<retry_timer>(.*?)<\/retry_timer>/, "").trim()
+						retryInfo = retryTimer > 0 && (
+							<p
+								className={cn(
+									"mt-2 font-light text-xs  text-vscode-descriptionForeground cursor-default flex items-center gap-1 transition-all duration-1000",
+									retryTimer === 0 ? "opacity-0 max-h-0" : "max-h-2 opacity-100",
+								)}>
+								<Repeat2 className="size-3" strokeWidth={1.5} />
+								<span>{retryTimer}s</span>
+							</p>
+						)
+					}
+					return (
+						<ErrorRow
+							type="api_req_retry_delayed"
+							code={code}
+							message={body}
+							docsURL={docsURL}
+							additionalContent={retryInfo}
+							errorDetails={rawError}
+						/>
 					)
 				case "api_req_finished":
 					return null // we should never see this message type
@@ -1240,7 +1384,30 @@ export const ChatRowContent = ({
 						</div>
 					)
 				case "error":
-					return <ErrorRow type="error" message={message.text || ""} />
+					// kilocode_change start: Show login button for KiloCode auth errors
+					const isKiloCodeAuthError =
+						apiConfiguration?.apiProvider === "kilocode" &&
+						message.text?.includes(KILOCODE_TOKEN_REQUIRED_ERROR)
+					return (
+						<ErrorRow
+							type="error"
+							message={t("chat:error")}
+							errorDetails={message.text || undefined}
+							showLoginButton={isKiloCodeAuthError}
+							onLoginClick={
+								isKiloCodeAuthError
+									? () => {
+											vscode.postMessage({
+												type: "switchTab",
+												tab: "auth",
+												values: { returnTo: "chat" },
+											})
+										}
+									: undefined
+							}
+						/>
+					)
+				// kilocode_change end
 				case "completion_result":
 					const commitRange = message.metadata?.kiloCode?.commitRange
 					return (
@@ -1280,12 +1447,27 @@ export const ChatRowContent = ({
 						/>
 					)
 				case "condense_context":
+					// In-progress state
 					if (message.partial) {
-						return <CondensingContextRow />
+						return <InProgressRow eventType="condense_context" />
 					}
-					return message.contextCondense ? <ContextCondenseRow {...message.contextCondense} /> : null
+					// Completed state
+					if (message.contextCondense) {
+						return <CondensationResultRow data={message.contextCondense} />
+					}
+					return null
 				case "condense_context_error":
-					return <CondenseContextErrorRow errorText={message.text} />
+					return <CondensationErrorRow errorText={message.text} />
+				case "sliding_window_truncation":
+					// In-progress state
+					if (message.partial) {
+						return <InProgressRow eventType="sliding_window_truncation" />
+					}
+					// Completed state
+					if (message.contextTruncation) {
+						return <TruncationResultRow data={message.contextTruncation} />
+					}
+					return null
 				case "codebase_search_result":
 					let parsed: {
 						content: {
@@ -1316,39 +1498,6 @@ export const ChatRowContent = ({
 					const { results = [] } = parsed?.content || {}
 
 					return <CodebaseSearchResultsDisplay results={results} />
-				// kilocode_change start: upstream pr https://github.com/RooCodeInc/Roo-Code/pull/5452
-				case "browser_action_result":
-					// This should not normally be rendered here as browser_action_result messages
-					// should be grouped into browser sessions and rendered by BrowserSessionRow.
-					// If we see this, it means the message grouping logic has a bug.
-					return (
-						<>
-							{title && (
-								<div style={headerStyle}>
-									{icon}
-									{title}
-								</div>
-							)}
-							<div style={{ paddingTop: 10 }}>
-								<div
-									style={{
-										color: "var(--vscode-errorForeground)",
-										fontFamily: "monospace",
-										fontSize: "12px",
-										padding: "8px",
-										backgroundColor: "var(--vscode-editor-background)",
-										border: "1px solid var(--vscode-editorError-border)",
-										borderRadius: "4px",
-										marginBottom: "8px",
-									}}>
-									⚠️ Browser action result not properly grouped - this is a bug in the message
-									grouping logic
-								</div>
-								<Markdown markdown={message.text} partial={message.partial} />
-							</div>
-						</>
-					)
-				// kilocode_change end
 				case "user_edit_todos":
 					return <UpdateTodoListToolBlock userEdited onChange={() => {}} />
 				case "tool" as any:
@@ -1441,6 +1590,41 @@ export const ChatRowContent = ({
 							<ImageBlock imageUri={imageInfo.imageUri} imagePath={imageInfo.imagePath} />
 						</div>
 					)
+				// kilocode_change start: upstream pr https://github.com/RooCodeInc/Roo-Code/pull/5452
+				case "browser_action":
+					return null
+				case "browser_action_result":
+					// This should not normally be rendered here as browser_action_result messages
+					// should be grouped into browser sessions and rendered by BrowserSessionRow.
+					// If we see this, it means the message grouping logic has a bug.
+					return (
+						<>
+							{title && (
+								<div style={headerStyle}>
+									{icon}
+									{title}
+								</div>
+							)}
+							<div style={{ paddingTop: 10 }}>
+								<div
+									style={{
+										color: "var(--vscode-errorForeground)",
+										fontFamily: "monospace",
+										fontSize: "12px",
+										padding: "8px",
+										backgroundColor: "var(--vscode-editor-background)",
+										border: "1px solid var(--vscode-editorError-border)",
+										borderRadius: "4px",
+										marginBottom: "8px",
+									}}>
+									⚠️ Browser action result not properly grouped - this is a bug in the message
+									grouping logic
+								</div>
+								<Markdown markdown={message.text} partial={message.partial} />
+							</div>
+						</>
+					)
+				// kilocode_change end
 				default:
 					return (
 						<>
@@ -1573,6 +1757,7 @@ export const ChatRowContent = ({
 									ts={message?.ts}
 									onCancelAutoApproval={onFollowUpUnmount}
 									isAnswered={isFollowUpAnswered}
+									isFollowUpAutoApprovalPaused={isFollowUpAutoApprovalPaused}
 								/>
 							</div>
 						</>

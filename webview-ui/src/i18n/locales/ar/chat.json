@@ -26,7 +26,9 @@
 		"expand": "توسيع المهمة",
 		"collapse": "طي المهمة",
 		"openInCloud": "افتح في السحابة",
-		"openInCloudIntro": "راقب وأدر هذه المهمة عن بُعد"
+		"openInCloudIntro": "راقب وأدر هذه المهمة عن بُعد",
+		"openApiHistory": "افتح سجل API",
+		"openUiHistory": "افتح سجل الواجهة"
 	},
 	"history": {
 		"title": "السجل"
@@ -53,9 +55,9 @@
 		"tooltip": "احفظ تغييرات الملف"
 	},
 	"tokenProgress": {
-		"availableSpace": "Available space: {{amount}} tokens",
-		"tokensUsed": "Tokens used: {{used}} of {{total}}",
-		"reservedForResponse": "Reserved for model response: {{amount}} tokens"
+		"availableSpace": "المساحة المتاحة: {{amount}} توكن",
+		"tokensUsed": "التوكينات المستخدمة: {{used}} من {{total}}",
+		"reservedForResponse": "محجوز للاستجابة: {{amount}} توكن"
 	},
 	"reject": {
 		"title": "رفض",
@@ -102,7 +104,8 @@
 		"placeholder": "عدّل رسالتك..."
 	},
 	"scrollToBottom": "انزل لنهاية المحادثة",
-	"about": "أنشئ، أعِد هيكلة، واصلِح الأكواد بمساعدة الذكاء. اطّلع على <DocsLink>التوثيق</DocsLink> لتعرف أكثر.",
+	"about": "أنشئ، أعِد هيكلة، واصلِح الأكواد بمساعدة الذكاء الاصطناعي. اطّلع على <DocsLink>التوثيق</DocsLink> لتعرف أكثر.",
+	"docs": "راجع <DocsLink>التوثيق</DocsLink> للبدء",
 	"onboarding": "قائمة المهام فاضية في هالمساحة.",
 	"rooTips": {
 		"boomerangTasks": {
@@ -120,6 +123,10 @@
 		"customizableModes": {
 			"title": "أنماط قابلة للتخصيص",
 			"description": "شخصيات متخصصة لها سلوكها ونماذجها الخاصة"
+		},
+		"modelAgnostic": {
+			"title": "استخدم نموذجك الخاص، بدون رسوم أو قيود",
+			"description": "استخدم مفتاح موفّرك الخاص أو حتى شغّل الاستنتاج محلياً — Kilo Code ما يفرض رسوم عليه"
 		}
 	},
 	"selectMode": "اختر نمط التفاعل",
@@ -138,6 +145,7 @@
 	"enhancePromptDescription": "زر «حسّن الموجه» يطوّر موجهك بإضافة سياق أو توضيح أو إعادة صياغة. جرّب اكتب موجه هنا ثم اضغط الزر مرة ثانية وشوف النتيجة.",
 	"addImages": "أضف صور للرسالة",
 	"sendMessage": "أرسل الرسالة",
+	"pressToSend": "اضغط {{keyCombination}} للإرسال",
 	"stopTts": "أوقف النطق الآلي",
 	"typeMessage": "اكتب رسالة...",
 	"typeTask": "ابنِ، ابحث، اسأل عن شي",
@@ -155,7 +163,19 @@
 		"failed": "فشل طلب API",
 		"streaming": "جاري طلب API...",
 		"cancelled": "تم إلغاء طلب API",
-		"streamingFailed": "فشل بث API"
+		"streamingFailed": "فشل بث API",
+		"errorTitle": "خطأ API {{code}}",
+		"errorMessage": {
+			"docs": "التوثيق",
+			"400": "الموفر ما قدر يعالج الطلب كما هو. أوقف المهمة وحاول مقاربة ثانية.",
+			"401": "فشلت المصادقة مع الموفر. تحقق من إعدادات مفتاح API.",
+			"402": "يبدو أنك استنفدت الرصيد/الأرصدة في حسابك. روح للموفر وأضف أكثر للمتابعة.",
+			"403": "غير مصرّح. مفتاح API صحيح، لكن الموفر رفض إتمام الطلب.",
+			"429": "طلبات كثيرة. الموفر حدد معدل طلباتك. انتظر شوي قبل طلب API الجاي.",
+			"500": "خطأ في خادم الموفر. فيه مشكلة عند الموفر، ما فيه شي غلط في طلبك.",
+			"connection": "خطأ في الاتصال. تأكد أن عندك اتصال إنترنت شغّال.",
+			"unknown": "خطأ API غير معروف. يرجى الاتصال بدعم Kilo."
+		}
 	},
 	"checkpoint": {
 		"initial": "نقطة حفظ أولية",
@@ -176,6 +196,21 @@
 			"more": "خيارات إضافية"
 		},
 		"current": "الحالية"
+	},
+	"contextManagement": {
+		"tokens": "توكينات",
+		"condensation": {
+			"title": "تم تلخيص السياق",
+			"inProgress": "جاري تلخيص السياق...",
+			"errorHeader": "فشل تلخيص السياق"
+		},
+		"truncation": {
+			"title": "تم اقتطاع السياق",
+			"inProgress": "جاري اقتطاع السياق...",
+			"messagesRemoved": "تمت إزالة {{count}} رسالة",
+			"messagesRemoved_other": "تمت إزالة {{count}} رسالة",
+			"description": "تمت إزالة الرسائل القديمة من المحادثة للبقاء ضمن حد نافذة السياق. هذه طريقة سريعة لكن أقل حفاظاً على السياق مقارنة بالتلخيص."
+		}
 	},
 	"contextCondense": {
 		"title": "تم تلخيص السياق",
@@ -205,7 +240,9 @@
 		"didSearchReplace": "Kilo Code أجرى بحثًا واستبدالًا في هذا الملف:",
 		"wantsToInsert": "Kilo Code يريد إدراج محتوى في هذا الملف:",
 		"wantsToInsertWithLineNumber": "Kilo Code يريد إدراج محتوى في هذا الملف عند السطر {{lineNumber}}:",
-		"wantsToInsertAtEnd": "Kilo Code يريد إضافة محتوى في نهاية هذا الملف:"
+		"wantsToInsertAtEnd": "Kilo Code يريد إضافة محتوى في نهاية هذا الملف:",
+		"wantsToDelete": "Kilo Code يريد حذف هذا الملف",
+		"wantsToDeleteDirectory": "Kilo Code يريد حذف هذا المجلد"
 	},
 	"directoryOperations": {
 		"wantsToViewTopLevel": "Kilo Code يريد عرض الملفات العلوية في هذا المجلد:",
@@ -281,6 +318,11 @@
 	},
 	"taskCompleted": "المهمة انتهت",
 	"error": "خطأ",
+	"errorDetails": {
+		"title": "تفاصيل الخطأ",
+		"copyToClipboard": "نسخ للحافظة",
+		"copied": "تم النسخ!"
+	},
 	"diffError": {
 		"title": "التعديل لم ينجح"
 	},
@@ -312,6 +354,7 @@
 	},
 	"announcement": {
 		"title": "🎉 Kilo Code {{version}} تم إطلاقه",
+		"support": "من فضلك ادعم Roo Code بإضافة نجمة لنا على <githubLink>GitHub</githubLink>.",
 		"stealthModel": {
 			"feature": "<bold>نموذج سري مجاني لفترة محدودة</bold> - نموذج تفكير سريع جداً يتفوق في البرمجة الذكية مع نافذة سياق 262k، متاح عبر Roo Code Cloud.",
 			"goToSettingsButton": "اذهب للإعدادات",
@@ -323,13 +366,20 @@
 			"heading": "الجديد في الإضافة:",
 			"openRouterEmbeddings": "دعم نماذج التضمين من OpenRouter",
 			"chutesDynamic": "Chutes الآن يحمّل أحدث النماذج ديناميكياً",
-			"queuedMessagesFix": "إصلاحات لمشكلة فقدان الرسائل في الطابور"
+			"queuedMessagesFix": "إصلاحات لمشكلة فقدان الرسائل في الطابور",
+			"browserUse": "Browser Use 2.0 يطوّر تجربة التصفح في الدردشة بجلسات دائمة وتغذية راجعة أوضح ولوحة متصفح مخصصة ووصف أوضح للإجراءات",
+			"cloudPaid": "موفر Roo Code Cloud الآن يقدّم نماذج مدفوعة: اشترِ رصيداً واستخدمه للوكلاء السحابيين والاستنتاج",
+			"contextRewind": "تحسين تلخيص السياق يخليك تسترجع السياق الكامل السابق عند الرجوع لنقطة حفظ",
+			"rooProvider": "موفر Roo Code Cloud الآن يحفظ محتوى التفكير ويستخدم الأدوات الأصلية افتراضياً للأداء الأفضل"
 		},
 		"cloudAgents": {
 			"heading": "الجديد في السحابة:",
 			"prFixer": "نقدّم وكيل <bold>PR Fixer</bold> السحابي لاستكمال PR Reviewer.",
 			"prFixerDescription": "PR Fixer يطبّق تغييرات عالية الجودة على طلبات السحب مباشرة من GitHub. فعّله عبر تعليق في PR وسيقرأ كامل سجل التعليقات لفهم السياق والاتفاقات والمقايضات - ثم ينفّذ الإصلاح المناسب.",
-			"tryPrFixerButton": "جرّب PR Fixer"
+			"tryPrFixerButton": "جرّب PR Fixer",
+			"specialized": "نقدّم <bold>الشارح</bold> و<bold>المخطط</bold> و<bold>المبرمج</bold> - ثلاثة وكلاء سحابيين متخصصين لتطوير سير عملك.",
+			"description": "الوكلاء يعملون معاً في السحابة ويمكن تشغيلهم من الويب أو عبر Slack.",
+			"tryButton": "جرّب الوكلاء السحابيين"
 		},
 		"careers": "أيضاً، <careersLink>نحن نوظّف!</careersLink>",
 		"description": "Kilo Code {{version}} يجلب ميزات وتحسينات كبيرة بناءً على ملاحظاتكم.",
@@ -349,10 +399,20 @@
 	},
 	"followUpSuggest": {
 		"copyToInput": "انسخ إلى الإدخال (Shift + انقر)",
+		"timerPrefix": "الموافقة التلقائية مفعّلة. الاختيار خلال {{seconds}}ث...",
 		"autoSelectCountdown": "سيتم الاختيار تلقائياً خلال {{count}}ث",
 		"countdownDisplay": "{{count}}ث"
 	},
+	"browserAnnouncement": "تحديث Browser Use 2.0 يُحسِّن تجربة التصفح في الدردشة بجلسات دائمة، تغذية راجعة أوضح، لوحة متصفح مخصصة، ووصف أوضح للإجراءات",
+	"browserAnnouncementDesc": "الآن يمكنك الحفاظ على جلسات المتصفح بين الطلبات، تتبع أفعال المتصفح بشكل أفضل، والحصول على تجربة تصفح أكثر سلاسة",
+	"browserSession": "جلسة المتصفح",
+	"browserActionPress": "ضغط المفتاح",
+	"browserActionPressDesc": "ضغط مفتاح معين في لوحة المفاتيح",
+	"browserActionHover": "التمرير فوق",
+	"browserActionHoverDesc": "تحريك الماوس فوق عنصر",
+	"rooCloudAnnouncement": "موفر Roo Code Cloud الآن يقدم نماذج مدفوعة: اشترِ رصيداً واستخدمه للوكلاء السحابيين والاستنتاج",
 	"browser": {
+		"session": "جلسة المتصفح",
 		"rooWantsToUse": "Kilo Code يريد استخدام المتصفح:",
 		"consoleLogs": "سجلات الكونسول",
 		"noNewLogs": "(لا توجد سجلات جديدة)",
@@ -366,11 +426,25 @@
 		"sessionStarted": "بدأت جلسة التصفح",
 		"actions": {
 			"title": "إجراء تصفح: ",
+			"launched": "تم فتح المتصفح",
 			"launch": "فتح المتصفح على {{url}}",
+			"clicked": "نقرة عند: {{coordinate}}",
 			"click": "نقرة ({{coordinate}})",
+			"typed": "تم كتابة: {{text}}",
 			"type": "كتابة \"{{text}}\"",
+			"pressed": "تم ضغط المفتاح: {{key}}",
+			"press": "ضغط {{key}}",
+			"scrolledDown": "تم التمرير لأسفل",
 			"scrollDown": "تمرير لأسفل",
+			"scrolledUp": "تم التمرير لأعلى",
 			"scrollUp": "تمرير لأعلى",
+			"hovered": "تم التمرير عند: {{coordinate}}",
+			"hover": "تمرير ({{coordinate}})",
+			"resized": "تم تغيير الحجم إلى: {{size}}",
+			"resize": "تغيير الحجم إلى {{size}}",
+			"screenshotSaved": "تم حفظ لقطة الشاشة",
+			"screenshot": "حفظ لقطة شاشة في {{path}}",
+			"closed": "تم إغلاق المتصفح",
 			"close": "إغلاق المتصفح"
 		}
 	},
@@ -460,5 +534,12 @@
 	"feedback": {
 		"youSaid": "قلت"
 	},
-	"generateCommitMessage": "إنشاء رسالة الالتزام"
+	"generateCommitMessage": "إنشاء رسالة الالتزام",
+	"todo": {
+		"partial": "{{completed}} من {{total}} مهام مكتملة",
+		"complete": "{{total}} مهام مكتملة",
+		"updated": "تم تحديث قائمة المهام",
+		"completed": "مكتملة",
+		"started": "بدأت"
+	}
 }

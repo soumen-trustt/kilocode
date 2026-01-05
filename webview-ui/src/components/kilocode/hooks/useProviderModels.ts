@@ -3,6 +3,8 @@ import {
 	type ProviderSettings,
 	anthropicDefaultModelId,
 	anthropicModels,
+	basetenModels,
+	basetenDefaultModelId,
 	bedrockDefaultModelId,
 	bedrockModels,
 	deepSeekDefaultModelId,
@@ -36,7 +38,6 @@ import {
 	doubaoDefaultModelId,
 	fireworksModels,
 	fireworksDefaultModelId,
-	syntheticModels,
 	syntheticDefaultModelId,
 	ioIntelligenceDefaultModelId,
 	moonshotModels,
@@ -48,10 +49,15 @@ import {
 	deepInfraDefaultModelId,
 	cerebrasModels,
 	cerebrasDefaultModelId,
+	nanoGptDefaultModelId, //kilocode_change
 	ovhCloudAiEndpointsDefaultModelId,
 	inceptionDefaultModelId,
 	minimaxModels,
 	minimaxDefaultModelId,
+	internationalZAiModels,
+	internationalZAiDefaultModelId,
+	mainlandZAiModels,
+	mainlandZAiDefaultModelId,
 } from "@roo-code/types"
 import type { ModelRecord, RouterModels } from "@roo/api"
 import { useRouterModels } from "../../ui/hooks/useRouterModels"
@@ -66,10 +72,12 @@ export const getModelsByProvider = ({
 	provider,
 	routerModels,
 	kilocodeDefaultModel,
+	options = { isChina: false },
 }: {
 	provider: ProviderName
 	routerModels: RouterModels
 	kilocodeDefaultModel: string
+	options: { isChina?: boolean }
 }): { models: ModelRecord; defaultModel: string } => {
 	switch (provider) {
 		case "openrouter": {
@@ -235,7 +243,7 @@ export const getModelsByProvider = ({
 		// kilocode_change start
 		case "synthetic": {
 			return {
-				models: syntheticModels,
+				models: routerModels.synthetic,
 				defaultModel: syntheticDefaultModelId,
 			}
 		}
@@ -249,6 +257,12 @@ export const getModelsByProvider = ({
 			return {
 				models: routerModels.inception,
 				defaultModel: inceptionDefaultModelId,
+			}
+		}
+		case "sap-ai-core": {
+			return {
+				models: routerModels["sap-ai-core"],
+				defaultModel: "",
 			}
 		}
 		// kilocode_change end
@@ -282,10 +296,37 @@ export const getModelsByProvider = ({
 				defaultModel: deepInfraDefaultModelId,
 			}
 		}
+		//kilocode_change start
+		case "nano-gpt": {
+			return {
+				models: routerModels["nano-gpt"],
+				defaultModel: nanoGptDefaultModelId,
+			}
+		}
+		//kilocode_change end
 		case "minimax": {
 			return {
 				models: minimaxModels,
 				defaultModel: minimaxDefaultModelId,
+			}
+		}
+		case "baseten": {
+			return {
+				models: basetenModels,
+				defaultModel: basetenDefaultModelId,
+			}
+		}
+		case "zai": {
+			if (options.isChina) {
+				return {
+					models: mainlandZAiModels,
+					defaultModel: mainlandZAiDefaultModelId,
+				}
+			} else {
+				return {
+					models: internationalZAiModels,
+					defaultModel: internationalZAiDefaultModelId,
+				}
 			}
 		}
 		default:
@@ -293,6 +334,16 @@ export const getModelsByProvider = ({
 				models: {},
 				defaultModel: "",
 			}
+	}
+}
+
+export const getOptionsForProvider = (provider: ProviderName, apiConfiguration?: ProviderSettings) => {
+	switch (provider) {
+		case "zai":
+			// Determine which Z.AI model set to use based on the API line configuration
+			return { isChina: apiConfiguration?.zaiApiLine === "china_coding" }
+		default:
+			return {}
 	}
 }
 
@@ -308,7 +359,14 @@ export const useProviderModels = (apiConfiguration?: ProviderSettings) => {
 		chutesApiKey: apiConfiguration?.chutesApiKey,
 		geminiApiKey: apiConfiguration?.geminiApiKey,
 		googleGeminiBaseUrl: apiConfiguration?.googleGeminiBaseUrl,
+		//kilocode_change start
+		nanoGptApiKey: apiConfiguration?.nanoGptApiKey,
+		nanoGptModelList: apiConfiguration?.nanoGptModelList,
+		//kilocode_change end
+		syntheticApiKey: apiConfiguration?.syntheticApiKey, // kilocode_change
 	})
+
+	const options = getOptionsForProvider(provider, apiConfiguration)
 
 	const { models, defaultModel } =
 		apiConfiguration && typeof routerModels.data !== "undefined"
@@ -316,6 +374,7 @@ export const useProviderModels = (apiConfiguration?: ProviderSettings) => {
 					provider,
 					routerModels: routerModels.data,
 					kilocodeDefaultModel,
+					options,
 				})
 			: FALLBACK_MODELS
 

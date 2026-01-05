@@ -34,6 +34,7 @@ import { arePathsEqual, getWorkspacePath } from "../../utils/path"
 import { injectVariables } from "../../utils/config"
 import { NotificationService } from "./kilocode/NotificationService"
 import { safeWriteJson } from "../../utils/safeWriteJson"
+import { sanitizeMcpName } from "../../utils/mcp-name"
 
 // Discriminated union for connection states
 export type ConnectedMcpConnection = {
@@ -156,6 +157,7 @@ export class McpHub {
 	private configChangeDebounceTimers: Map<string, NodeJS.Timeout> = new Map()
 	private isProgrammaticUpdate: boolean = false
 	private flagResetTimer?: NodeJS.Timeout
+	private sanitizedNameRegistry: Map<string, string> = new Map()
 
 	constructor(provider: ClineProvider) {
 		this.providerRef = new WeakRef(provider)
@@ -559,6 +561,27 @@ export class McpHub {
 		await this.initializeMcpServers("global")
 	}
 
+	// kilocode_change start
+	// Check alternative MCP configuration paths (for compatibility with other tools)
+	private async checkAlternativeMcpPaths(workspacePath: string): Promise<string | null> {
+		const alternativePaths = [
+			path.join(workspacePath, ".cursor", "mcp.json"),
+			path.join(workspacePath, ".mcp.json"),
+		]
+
+		for (const mcpPath of alternativePaths) {
+			try {
+				await fs.access(mcpPath)
+				return mcpPath
+			} catch {
+				// Ignore errors and try the next path
+			}
+		}
+
+		return null
+	}
+	// kilocode_change end
+
 	// Get project-level MCP configuration path
 	private async getProjectMcpPath(): Promise<string | null> {
 		const workspacePath = this.providerRef.deref()?.cwd ?? getWorkspacePath()
@@ -569,6 +592,9 @@ export class McpHub {
 			await fs.access(projectMcpPath)
 			return projectMcpPath
 		} catch {
+			// kilocode_change
+			return this.checkAlternativeMcpPaths(workspacePath)
+
 			// If not found in .kilocode/, fall back to .mcp.json in root directory
 			const rootMcpPath = path.join(workspacePath, ".mcp.json")
 			try {
@@ -635,6 +661,10 @@ export class McpHub {
 	): Promise<void> {
 		// Remove existing connection if it exists with the same source
 		await this.deleteConnection(name, source)
+
+		// Register the sanitized name for O(1) lookup
+		const sanitizedName = sanitizeMcpName(name)
+		this.sanitizedNameRegistry.set(sanitizedName, name)
 
 		// Check if MCP is globally enabled
 		const mcpEnabled = await this.isMcpEnabled()
@@ -942,6 +972,21 @@ export class McpHub {
 		}
 	}
 	// kilocode_change end
+	/**
+	 * Find a connection by sanitized server name.
+	 * This is used when parsing MCP tool responses where the server name has been
+	 * sanitized (e.g., hyphens replaced with underscores) for API compliance.
+	 * @param sanitizedServerName The sanitized server name from the API tool call
+	 * @returns The original server name if found, or null if no match
+	 */
+	public findServerNameBySanitizedName(sanitizedServerName: string): string | null {
+		const exactMatch = this.connections.find((conn) => conn.server.name === sanitizedServerName)
+		if (exactMatch) {
+			return exactMatch.server.name
+		}
+
+		return this.sanitizedNameRegistry.get(sanitizedServerName) ?? null
+	}
 
 	private async fetchToolsList(serverName: string, source?: "global" | "project"): Promise<McpTool[]> {
 		try {
@@ -1083,6 +1128,13 @@ export class McpHub {
 			if (source && conn.server.source !== source) return true
 			return false
 		})
+
+		// Remove from sanitized name registry if no more connections with this name exist
+		const remainingConnections = this.connections.filter((conn) => conn.server.name === name)
+		if (remainingConnections.length === 0) {
+			const sanitizedName = sanitizeMcpName(name)
+			this.sanitizedNameRegistry.delete(sanitizedName)
+		}
 	}
 
 	async updateServerConnections(
@@ -1434,8 +1486,8 @@ export class McpHub {
 						await this.deleteConnection(serverName, serverSource)
 						// Re-add as a disabled connection
 						// Re-read config from file to get updated disabled state
-					const updatedConfig = await this.readServerConfigFromFile(serverName, serverSource)
-					await this.connectToServer(serverName, updatedConfig, serverSource)
+						const updatedConfig = await this.readServerConfigFromFile(serverName, serverSource)
+						await this.connectToServer(serverName, updatedConfig, serverSource)
 					} else if (!disabled && connection.server.status === "disconnected") {
 						// If enabling a disabled server, connect it
 						// Re-read config from file to get updated disabled state
