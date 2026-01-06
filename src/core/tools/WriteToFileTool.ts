@@ -17,6 +17,7 @@ import { EXPERIMENT_IDS, experiments } from "../../shared/experiments"
 import { convertNewFileToUnifiedDiff, computeDiffStats, sanitizeUnifiedDiff } from "../diff/stats"
 import { BaseTool, ToolCallbacks } from "./BaseTool"
 import type { ToolUse } from "../../shared/tools"
+import { isDraftPath } from "../../services/planning" // kilocode_change
 import { trackContribution } from "../../services/contribution-tracking/ContributionTrackingService" // kilocode_change
 
 interface WriteToFileParams {
@@ -52,6 +53,22 @@ export class WriteToFileTool extends BaseTool<"write_to_file"> {
 			task.recordToolError("write_to_file")
 			pushToolResult(await task.sayAndCreateMissingParamError("write_to_file", "content"))
 			await task.diffViewProvider.reset()
+			return
+		}
+
+		// Check if this is a draft document
+		if (isDraftPath(relPath)) {
+			// Use VSCode's standard workspace.fs API - it automatically routes to our provider
+			const uri = vscode.Uri.parse(relPath)
+			const contentBytes = new TextEncoder().encode(newContent)
+			await vscode.workspace.fs.writeFile(uri, contentBytes)
+
+			// Track file edit operation
+			await task.fileContextTracker.trackFileContext(relPath, "roo_edited" as RecordSource)
+
+			task.didEditFile = true
+
+			pushToolResult(formatResponse.toolResult(`Updated draft document "${relPath}"`))
 			return
 		}
 

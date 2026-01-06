@@ -1,4 +1,5 @@
 import path from "path"
+import * as vscode from "vscode"
 import { isBinaryFile } from "isbinaryfile"
 
 import { Task } from "../task/Task"
@@ -13,7 +14,8 @@ import { countFileLines } from "../../integrations/misc/line-counter"
 import { readLines } from "../../integrations/misc/read-lines"
 import { extractTextFromFile, addLineNumbers, getSupportedBinaryFormats } from "../../integrations/misc/extract-text"
 import { parseSourceCodeDefinitionsForFile } from "../../services/tree-sitter"
-import { ToolProtocol, isNativeProtocol } from "@roo-code/types"
+import { ToolProtocol, isNativeProtocol, TOOL_PROTOCOL } from "@roo-code/types"
+import { isDraftPath } from "../../services/planning"
 import {
 	DEFAULT_MAX_IMAGE_FILE_SIZE_MB,
 	DEFAULT_MAX_TOTAL_IMAGE_SIZE_MB,
@@ -76,6 +78,45 @@ export async function simpleReadFileTool(
 	const fullPath = path.resolve(cline.cwd, relPath)
 
 	try {
+		// Check if this is a draft document
+		if (isDraftPath(relPath)) {
+			try {
+				// Use VSCode's standard workspace.fs API - it automatically routes to our provider
+				const uri = vscode.Uri.parse(relPath)
+				const contentBytes = await vscode.workspace.fs.readFile(uri)
+				const content = new TextDecoder().decode(contentBytes)
+
+				// Process content similar to regular files (add line numbers, etc.)
+				const numberedContent = addLineNumbers(content)
+				const totalLines = content.split("\n").length
+
+				// Track file read
+				await cline.fileContextTracker.trackFileContext(relPath, "read_tool" as RecordSource)
+
+				const lineRangeAttr = ` lines="1-${totalLines}"`
+				const xmlInfo =
+					totalLines > 0 ? `<content${lineRangeAttr}>\n${numberedContent}</content>\n` : `<content/>`
+				const nativeInfo =
+					totalLines > 0
+						? `File: ${relPath}\nLines: 1-${totalLines}\n\n${numberedContent}`
+						: `File: ${relPath}\n(empty file)`
+
+				// Return result based on protocol
+				const effectiveProtocol: ToolProtocol = toolProtocol || TOOL_PROTOCOL.XML
+				if (isNativeProtocol(effectiveProtocol)) {
+					pushToolResult(nativeInfo)
+				} else {
+					pushToolResult(`<file><path>${relPath}</path>\n${xmlInfo}</file>`)
+				}
+				return
+			} catch (error) {
+				// Handle error - document not found
+				await cline.say("error", `Draft document not found: ${relPath}`)
+				pushToolResult(`<file><path>${relPath}</path><error>Draft document not found</error></file>`)
+				return
+			}
+		}
+
 		// Check RooIgnore validation
 		const accessAllowed = cline.rooIgnoreController?.validateAccess(relPath)
 		if (!accessAllowed) {

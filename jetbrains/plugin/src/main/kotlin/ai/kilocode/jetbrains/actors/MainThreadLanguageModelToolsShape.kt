@@ -4,6 +4,7 @@
 
 package ai.kilocode.jetbrains.actors
 
+import ai.kilocode.jetbrains.tools.CreateDraftTool
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.logger
 import java.util.concurrent.ConcurrentHashMap
@@ -44,15 +45,26 @@ interface MainThreadLanguageModelToolsShape : Disposable {
      * @param name Tool name
      */
     fun unregisterTool(name: String)
+
+    /**
+     * Creates a draft document in the IDE.
+     * @param name The name/title of the draft document
+     * @param content The initial content of the draft
+     * @return Result map with success message and draft path
+     */
+    fun createDraft(name: String, content: String): Map<String, Any?>
 }
 
 /**
  * Implementation of the language model tools service.
  */
-class MainThreadLanguageModelTools : MainThreadLanguageModelToolsShape {
+class MainThreadLanguageModelTools(private val project: com.intellij.openapi.project.Project) : MainThreadLanguageModelToolsShape {
 
     private val logger = logger<MainThreadLanguageModelTools>()
     private val tools = ConcurrentHashMap<String, ToolInfo>()
+    
+    // Cache tool handlers to avoid creating new instances on every invocation
+    private val createDraftTool by lazy { CreateDraftTool(project) }
 
     /**
      * Tool information
@@ -81,12 +93,21 @@ class MainThreadLanguageModelTools : MainThreadLanguageModelToolsShape {
             throw IllegalStateException("Tool $toolId is not registered")
         }
 
-        // The actual tool should be invoked here. Currently returns a mock result.
-        // In the actual implementation, it may need to call the real tool in the extension process via RPC.
-        return mapOf(
-            "result" to "Tool $toolId invoked successfully",
-            "id" to toolId,
-        )
+        // Route to specific tool handlers
+        @Suppress("UNCHECKED_CAST")
+        val paramsMap = params as? Map<String, Any?> ?: emptyMap()
+        
+        return when (toolId) {
+            "create_draft" -> createDraftTool.handle(paramsMap)
+            else -> {
+                // Default: return mock result for unknown tools
+                // In the actual implementation, it may need to call the real tool in the extension process via RPC.
+                mapOf(
+                    "result" to "Tool $toolId invoked successfully",
+                    "id" to toolId,
+                )
+            }
+        }
     }
 
     override fun countTokensForInvocation(callId: String, input: String, token: Any?): Int {
@@ -111,6 +132,11 @@ class MainThreadLanguageModelTools : MainThreadLanguageModelToolsShape {
         } else {
             logger.warn("Attempting to unregister non-existent tool: $name")
         }
+    }
+
+    override fun createDraft(name: String, content: String): Map<String, Any?> {
+        logger.info("Creating draft document: $name")
+        return createDraftTool.handle(mapOf("title" to name, "content" to content))
     }
 
     override fun dispose() {

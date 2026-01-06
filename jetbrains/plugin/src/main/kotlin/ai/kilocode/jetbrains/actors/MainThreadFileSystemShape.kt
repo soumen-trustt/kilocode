@@ -4,10 +4,13 @@
 
 package ai.kilocode.jetbrains.actors
 
+import ai.kilocode.jetbrains.filesystem.DraftFileSystemProvider
+import ai.kilocode.jetbrains.filesystem.isDraftPath
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import java.io.File
 import java.net.URI
+import java.nio.charset.Charsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
@@ -289,6 +292,20 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("Getting file status information: $resource")
 
         try {
+            // Check if this is a draft:// path
+            val uriString = resource.toString()
+            if (isDraftPath(uriString)) {
+                val draftProvider = DraftFileSystemProvider.getInstance()
+                if (draftProvider.exists(uriString)) {
+                    val content = draftProvider.readFileAsString(uriString) ?: ""
+                    val size = content.toByteArray(Charsets.UTF_8).size.toLong()
+                    val now = System.currentTimeMillis()
+                    return FileStat(FileType.FILE, now, now, size)
+                } else {
+                    throw Exception("Draft document does not exist: $uriString")
+                }
+            }
+
             val path = getPathFromUriComponents(resource)
             val file = File(path)
 
@@ -352,6 +369,18 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("Reading file content: $uri")
 
         try {
+            // Check if this is a draft:// path
+            val uriString = uri.toString()
+            if (isDraftPath(uriString)) {
+                val draftProvider = DraftFileSystemProvider.getInstance()
+                val content = draftProvider.readFileAsString(uriString)
+                if (content != null) {
+                    return content.toByteArray(Charsets.UTF_8)
+                } else {
+                    throw Exception("Draft document not found: $uriString")
+                }
+            }
+
             val path = getPathFromUriComponents(uri)
             val file = File(path)
 
@@ -380,6 +409,15 @@ class MainThreadFileSystem : MainThreadFileSystemShape {
         logger.info("Writing file content: $uri, content size: ${content.size} bytes")
 
         try {
+            // Check if this is a draft:// path
+            val uriString = uri.toString()
+            if (isDraftPath(uriString)) {
+                val draftProvider = DraftFileSystemProvider.getInstance()
+                val contentString = String(content, Charsets.UTF_8)
+                draftProvider.writeFileFromString(uriString, contentString)
+                return content
+            }
+
             val path = getPathFromUriComponents(uri)
             val file = File(path)
 

@@ -333,6 +333,23 @@ export function filterNativeToolsForMode(
 		allowedToolNames.delete("access_mcp_resource")
 	}
 
+	// Conditionally exclude create_draft if running in CLI mode
+	// (drafts require an editor UI which CLI doesn't have)
+	// Note: JetBrains support is handled via RPC in the Kotlin plugin
+	// kilocode_change start
+	try {
+		// Use dynamic import to avoid circular dependencies
+		const wrapperModule = require("../../../core/kilocode/wrapper")
+		const { kiloCodeWrapperCode } = wrapperModule.getKiloCodeWrapperProperties()
+		if (kiloCodeWrapperCode === "cli") {
+			allowedToolNames.delete("create_draft")
+		}
+	} catch (e) {
+		// If wrapper detection fails, don't filter (fail open)
+		// This can happen if vscode module is not available (e.g., in tests)
+	}
+	// kilocode_change end
+
 	// Filter native tools based on allowed tool names and apply alias renames
 	const filteredTools: OpenAI.Chat.ChatCompletionTool[] = []
 

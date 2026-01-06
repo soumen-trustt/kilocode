@@ -43,6 +43,7 @@ export const toolNames = [
 	"update_todo_list",
 	"run_slash_command",
 	"generate_image",
+	"create_draft", // kilocode_change
 ] as const
 
 export const toolNamesSchema = z.enum(toolNames)

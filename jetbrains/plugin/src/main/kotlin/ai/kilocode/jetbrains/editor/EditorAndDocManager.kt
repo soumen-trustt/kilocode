@@ -5,6 +5,8 @@
 package ai.kilocode.jetbrains.editor
 
 import ai.kilocode.jetbrains.plugin.SystemObjectProvider
+import ai.kilocode.jetbrains.filesystem.DraftFileSystemProvider
+import ai.kilocode.jetbrains.filesystem.isDraftPath
 import ai.kilocode.jetbrains.util.URI
 import com.intellij.diff.DiffContentFactory
 import com.intellij.diff.chains.DiffRequestChain
@@ -235,6 +237,17 @@ class EditorAndDocManager(val project: Project) : Disposable {
                 }
                 val content = contentFactory.create(project, string, type)
                 return content
+            } else if (scheme == "draft") {
+                // Handle draft:// URIs - reconstruct full URI path
+                val draftPath = "${scheme}://${path}"
+                val draftProvider = DraftFileSystemProvider.getInstance()
+                val content = draftProvider.readFileAsString(draftPath)
+                if (content != null) {
+                    return contentFactory.create(project, content, type)
+                } else {
+                    logger.warn("Draft document not found: $draftPath")
+                    return null
+                }
             }
             return null
         } else {
@@ -247,13 +260,28 @@ class EditorAndDocManager(val project: Project) : Disposable {
         val path = documentUri.path
         var ideaEditor: Array<FileEditor?>? = null
 
-        val vfs = LocalFileSystem.getInstance()
-        val file = vfs.findFileByPath(path)
-        file?.let {
-            ApplicationManager.getApplication().invokeAndWait {
-                ideaEditor = fileEditorManager.openFile(it, true)
+        // Handle draft:// URIs
+        if (documentUri.scheme == "draft") {
+            val draftPath = "${documentUri.scheme}://${documentUri.path}"
+            val draftProvider = DraftFileSystemProvider.getInstance()
+            
+            // Get the virtual file for this draft
+            val virtualFile = draftProvider.getVirtualFile(draftPath)
+            if (virtualFile != null) {
+                ApplicationManager.getApplication().invokeAndWait {
+                    ideaEditor = fileEditorManager.openFile(virtualFile, true)
+                }
+            }
+        } else {
+            val vfs = LocalFileSystem.getInstance()
+            val file = vfs.findFileByPath(path)
+            file?.let {
+                ApplicationManager.getApplication().invokeAndWait {
+                    ideaEditor = fileEditorManager.openFile(it, true)
+                }
             }
         }
+        
         val eh = getEditorHandleByUri(documentUri, false)
         if (eh != null) {
             return eh
@@ -340,22 +368,28 @@ class EditorAndDocManager(val project: Project) : Disposable {
     suspend fun openDocument(uri: URI, isText: Boolean = true): ModelAddedData {
         // Update document content - Use ReadAction to wrap file system operations
         val text = if (isText) {
-            ApplicationManager.getApplication().runReadAction<String> {
-                val vfs = LocalFileSystem.getInstance()
-                val file = vfs.findFileByPath(uri.path)
-                if (file != null) {
-                    val len = file.length
-                    if (len > 3 * 1024 * 1024) {
-                        val buffer = ByteArray(3 * 1024 * 1024)
-                        val inputStream = FileInputStream(File(file.path))
-                        val bytesRead = inputStream.read(buffer)
-                        inputStream.close()
-                        String(buffer, 0, bytesRead, Charsets.UTF_8)
+            // Check if this is a draft:// URI
+            if (uri.scheme == "draft") {
+                val draftPath = "${uri.scheme}://${uri.path}"
+                DraftFileSystemProvider.getInstance().readFileAsString(draftPath) ?: ""
+            } else {
+                ApplicationManager.getApplication().runReadAction<String> {
+                    val vfs = LocalFileSystem.getInstance()
+                    val file = vfs.findFileByPath(uri.path)
+                    if (file != null) {
+                        val len = file.length
+                        if (len > 3 * 1024 * 1024) {
+                            val buffer = ByteArray(3 * 1024 * 1024)
+                            val inputStream = FileInputStream(File(file.path))
+                            val bytesRead = inputStream.read(buffer)
+                            inputStream.close()
+                            String(buffer, 0, bytesRead, Charsets.UTF_8)
+                        } else {
+                            file.readText()
+                        }
                     } else {
-                        file.readText()
+                        ""
                     }
-                } else {
-                    ""
                 }
             }
         } else {

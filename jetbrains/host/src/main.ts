@@ -23,6 +23,7 @@ import { IDisposable } from "../deps/vscode/vs/base/common/lifecycle.js"
 import { URI } from "../deps/vscode/vs/base/common/uri.js"
 import { RPCManager } from "./rpcManager.js"
 import { ExtensionManager } from "./extensionManager.js"
+import { setRpcProtocol } from "./rpcAccessor.js"
 
 // Get current file directory path
 const __filename = fileURLToPath(import.meta.url)
@@ -143,11 +144,18 @@ const server = net.createServer((socket) => {
 
 			rpcManager.startInitialize()
 
-			// Activate rooCode plugin
+			// Set the RPC protocol so it can be accessed globally for RPC calls
 			const rpcProtocol = rpcManager.getRPCProtocol()
 			if (rpcProtocol) {
+				setRpcProtocol(rpcProtocol)
+			} else {
+				console.error("Failed to get RPCProtocol from RPCManager")
+			}
+
+			// Activate kilocode plugin
+			if (rpcProtocol) {
 				extensionManager.activateExtension(rooCodeIdentifier.value, rpcProtocol).catch((error: Error) => {
-					console.error("Failed to load rooCode plugin:", error)
+					console.error("Failed to load kilocode plugin:", error)
 				})
 			} else {
 				console.error("Failed to get RPCProtocol from RPCManager")

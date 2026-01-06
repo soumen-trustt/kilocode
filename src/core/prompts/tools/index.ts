@@ -27,12 +27,13 @@ import { getGenerateImageDescription } from "./generate-image"
 import { getDeleteFileDescription } from "./delete-file" // kilocode_change
 import { CodeIndexManager } from "../../../services/code-index/manager"
 
-// kilocode_change start: Morph fast apply
+// kilocode_change start: Morph fast apply + create_draft import
 import { isFastApplyAvailable } from "../../tools/kilocode/editFileTool"
 import { getEditFileDescription } from "./edit-file"
 import { type ClineProviderState } from "../../webview/ClineProvider"
 import { ManagedIndexer } from "../../../services/code-index/managed/ManagedIndexer"
-// kilocode_change end
+import { getCreateDraftDescription } from "./create-draft"
+// kilocode_change end: Morph fast apply + create_draft import
 
 // Map of tool names to their description functions
 const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined> = {
@@ -64,6 +65,7 @@ const toolDescriptionMap: Record<string, (args: ToolArgs) => string | undefined>
 	update_todo_list: (args) => getUpdateTodoListDescription(args),
 	run_slash_command: () => getRunSlashCommandDescription(),
 	generate_image: (args) => getGenerateImageDescription(args),
+	create_draft: (args) => getCreateDraftDescription(args), // kilocode_change
 }
 
 export function getToolDescriptionsForMode(

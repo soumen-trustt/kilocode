@@ -1,4 +1,5 @@
 import path from "path"
+import * as vscode from "vscode"
 import { isBinaryFile } from "isbinaryfile"
 import type { FileEntry, LineRange } from "@roo-code/types"
 import { isNativeProtocol, ANTHROPIC_DEFAULT_MAX_TOKENS } from "@roo-code/types"
@@ -25,6 +26,7 @@ import {
 	processImageFile,
 	ImageMemoryTracker,
 } from "./helpers/imageHelpers"
+import { isDraftPath } from "../../services/planning" // kilocode_change
 import { validateFileTokenBudget, truncateFileContent } from "./helpers/fileTokenBudget"
 import { truncateDefinitionsToLineLimit } from "./helpers/truncateDefinitions"
 import { BaseTool, ToolCallbacks } from "./BaseTool"
@@ -176,6 +178,14 @@ export class ReadFileTool extends BaseTool<"read_file"> {
 				}
 
 				if (fileResult.status === "pending") {
+					// kilocode_change start: Skip approval for draft documents
+					// Skip approval for draft documents (auto-approved)
+					if (isDraftPath(relPath)) {
+						updateFileResult(relPath, { status: "approved" })
+						continue
+					}
+					// kilocode_change end
+
 					const accessAllowed = task.rooIgnoreController?.validateAccess(relPath)
 					if (!accessAllowed) {
 						await task.say("rooignore_error", relPath)
@@ -334,6 +344,51 @@ export class ReadFileTool extends BaseTool<"read_file"> {
 				if (fileResult.status !== "approved") continue
 
 				const relPath = fileResult.path
+
+				// kilocode_change start: Handle draft document reading
+				// Check if this is a draft document
+				if (isDraftPath(relPath)) {
+					try {
+						// Use VSCode's standard workspace.fs API - it automatically routes to our provider
+						const uri = vscode.Uri.parse(relPath)
+						const contentBytes = await vscode.workspace.fs.readFile(uri)
+						const content = new TextDecoder().decode(contentBytes)
+
+						// Process content similar to regular files (add line numbers, etc.)
+						const numberedContent = addLineNumbers(content)
+						const totalLines = content.split("\n").length
+
+						// Track file read
+						await task.fileContextTracker.trackFileContext(relPath, "read_tool" as RecordSource)
+
+						const lineRangeAttr = ` lines="1-${totalLines}"`
+						const xmlInfo =
+							totalLines > 0 ? `<content${lineRangeAttr}>\n${numberedContent}</content>\n` : `<content/>`
+						const nativeInfo =
+							totalLines > 0
+								? `File: ${relPath}\nLines: 1-${totalLines}\n\n${numberedContent}`
+								: `File: ${relPath}\n(empty file)`
+
+						updateFileResult(relPath, {
+							xmlContent: `<file><path>${relPath}</path>\n${xmlInfo}</file>`,
+							nativeContent: nativeInfo,
+						})
+						continue
+					} catch (error) {
+						// Handle error - document not found
+						const errorMsg = error instanceof Error ? error.message : "Draft document not found"
+						updateFileResult(relPath, {
+							status: "error",
+							error: `Draft document not found: ${relPath}`,
+							xmlContent: `<file><path>${relPath}</path><error>Draft document not found</error></file>`,
+							nativeContent: `File: ${relPath}\nError: Draft document not found`,
+						})
+						await handleError(`reading draft document ${relPath}`, new Error(errorMsg))
+						continue
+					}
+				}
+				// kilocode_change end
+
 				const fullPath = path.resolve(task.cwd, relPath)
 
 				try {
@@ -726,6 +781,7 @@ export class ReadFileTool extends BaseTool<"read_file"> {
 
 		return `[${blockName} with missing path/args/files]`
 	}
+	// kilocode_change end
 
 	override async handlePartial(task: Task, block: ToolUse<"read_file">): Promise<void> {
 		const argsXmlTag = block.params.args
